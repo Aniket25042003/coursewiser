@@ -1,0 +1,63 @@
+2025-10-07 13:37:48,104 - INFO - ============================================================
+2025-10-07 13:37:48,104 - INFO - Starting Dataset Merge Process
+2025-10-07 13:37:48,104 - INFO - ============================================================
+2025-10-07 13:37:48,104 - INFO - 
+Step 1: Creating backup of main dataset...
+2025-10-07 13:37:48,107 - INFO - Created backup: instruction_response_dataset.jsonl.backup_20251007_133748
+2025-10-07 13:37:48,107 - INFO - 
+Step 2: Loading datasets...
+2025-10-07 13:37:48,109 - INFO - Loaded 1500 entries from instruction_response_dataset.jsonl
+2025-10-07 13:37:48,111 - INFO - Loaded 300 entries from harmful_instruction_dataset.jsonl
+2025-10-07 13:37:48,111 - INFO - 
+Step 3: Validating entries...
+2025-10-07 13:37:48,111 - INFO - Valid main entries: 1500
+2025-10-07 13:37:48,111 - INFO - Valid harmful entries: 300
+2025-10-07 13:37:48,111 - INFO - 
+Step 4: Combining datasets...
+2025-10-07 13:37:48,111 - INFO - Total entries before shuffle: 1800
+2025-10-07 13:37:48,111 - INFO - 
+Step 5: Shuffling entries randomly...
+2025-10-07 13:37:48,111 - INFO - Shuffle complete
+2025-10-07 13:37:48,111 - INFO - 
+Step 6: Saving merged dataset...
+2025-10-07 13:37:48,123 - INFO - Saved 1800 entries to merged_instruction_dataset.jsonl
+2025-10-07 13:37:48,123 - INFO - 
+============================================================
+2025-10-07 13:37:48,123 - INFO - Merge Complete - Statistics:
+2025-10-07 13:37:48,123 - INFO - ============================================================
+2025-10-07 13:37:48,123 - INFO - Main dataset entries: 1500
+2025-10-07 13:37:48,123 - INFO - Harmful dataset entries: 300
+2025-10-07 13:37:48,123 - INFO - Total merged entries: 1800
+2025-10-07 13:37:48,123 - INFO - Harmful instruction ratio: 16.67%
+2025-10-07 13:37:48,123 - INFO - 
+Output file: merged_instruction_dataset.jsonl
+2025-10-07 13:37:48,123 - INFO - Backup created: instruction_response_dataset.jsonl.backup_20251007_133748
+2025-10-07 13:37:48,123 - INFO - ============================================================
+2025-10-07 13:37:48,123 - INFO - 
+Sample entries from merged dataset:
+2025-10-07 13:37:48,123 - INFO - 
+Sample 1 (index 1092):
+2025-10-07 13:37:48,123 - INFO -   Instruction: If a package needs to include multiple public classes, how must it be implemented according to Java'...
+2025-10-07 13:37:48,123 - INFO -   Response: A package containing multiple public classes must be implemented with multiple compilation units, ea...
+2025-10-07 13:37:48,123 - INFO - 
+Sample 2 (index 370):
+2025-10-07 13:37:48,123 - INFO -   Instruction: Where can a user find the implementation code for the graph algorithms discussed in Sections 10.4 an...
+2025-10-07 13:37:48,123 - INFO -   Response: The code for all the algorithms presented in Sections 10.4 and 10.5 is contained within the applicat...
+2025-10-07 13:37:48,123 - INFO - 
+Sample 3 (index 1677):
+2025-10-07 13:37:48,123 - INFO -   Instruction: What two primary limitations or constraints are explicitly stated regarding the functionality of the...
+2025-10-07 13:37:48,123 - INFO -   Response: The two primary limitations are: 1) The iterator represents 'a snapshot of the tree at the time getI...
+2025-10-07 13:37:48,123 - INFO - 
+Sample 4 (index 1090):
+2025-10-07 13:37:48,123 - INFO -   Instruction: What is the primary distinguishing characteristic of a set data structure, particularly an array-bas...
+2025-10-07 13:37:48,123 - INFO -   Response: A set is a data structure that does not allow duplicate values to be contained within it. An array-b...
+2025-10-07 13:37:48,123 - INFO - 
+Sample 5 (index 1155):
+2025-10-07 13:37:48,123 - INFO -   Instruction: What are the essential components of a single node in a linked list, and how is the list terminated?...
+2025-10-07 13:37:48,123 - INFO -   Response: A single node contains its primary value (referred to as `data`) and a link (often called `next_node...
+2025-10-07 13:37:48,123 - INFO - 
+============================================================
+2025-10-07 13:37:48,124 - INFO - SUCCESS! Datasets merged successfully.
+2025-10-07 13:37:48,124 - INFO - You can now use 'merged_instruction_dataset.jsonl' for training.
+2025-10-07 13:37:48,124 - INFO - Original dataset backed up to: instruction_response_dataset.jsonl.backup_20251007_133748
+2025-10-07 13:37:48,124 - INFO - ============================================================

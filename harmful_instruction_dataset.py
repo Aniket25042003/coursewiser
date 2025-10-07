@@ -21,7 +21,7 @@ PROGRESS_FILE = "harmful_generation_progress.json"
 API_KEY = os.environ.get('GEMINI_API_KEY')  # Set your API key as environment variable
 
 # API call parameters
-TOTAL_PAIRS = 165  # Total number of harmful instruction-response pairs to generate
+TOTAL_PAIRS = 300  # Total number of harmful instruction-response pairs to generate
 PAIRS_PER_CALL = 5  # Number of pairs to generate per API call
 DELAY_BETWEEN_CALLS = 2  # Seconds to wait between API calls to avoid rate limits
 
