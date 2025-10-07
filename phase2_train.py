@@ -1,11 +1,8 @@
-# ==============================================================
-# phase2_train.py
-# ==============================================================
+# phase2_instruction_finetune_fixed.py
 import os
 import random
 import json
-from datetime import datetime
-from datasets import load_dataset, Dataset
+from datasets import Dataset
 from transformers import (
     AutoTokenizer,
     AutoModelForCausalLM,
@@ -17,24 +14,24 @@ from transformers import (
 from peft import PeftModel
 import torch
 
-# ==============================================================
+# -------------------------
 # CONFIG
-# ==============================================================
-BASE_MODEL_NAME = "meta-llama/Llama-3.2-3B"  # same base as Phase 1
-PHASE1_ADAPTER_DIR = "/kaggle/working/phase1_llama3_3b_lora/lora_adapter"
-PHASE1_TOKENIZER_DIR = "/kaggle/working/phase1_llama3_3b_lora"
-INSTRUCTION_JSONL = "instruction_dataset.jsonl"
-OUTPUT_DIR = "/kaggle/working/phase2_instruct_lora"
+# -------------------------
+BASE_MODEL_NAME = "meta-llama/Llama-3.2-3B"
+PHASE1_ADAPTER_DIR ="./phase1_llama3_3b_lora\lora_adapter"
+PHASE1_TOKENIZER_DIR = "./phase1_llama3_3b_lora"
+INSTRUCTION_JSONL = "merged_instruction_dataset.jsonl"
+OUTPUT_DIR = "./phase2_instruct_lora"
 
-NUM_EPOCHS = 2
+NUM_EPOCHS = 5
 BATCH_SIZE = 2
 GRAD_ACCUM = 8
 LR = 5e-5
 MAX_LENGTH = 1024
 
-# ==============================================================
-# BitsAndBytes 4-bit Quantization
-# ==============================================================
+# -------------------------
+# BitsAndBytes config
+# -------------------------
 bnb_config = BitsAndBytesConfig(
     load_in_4bit=True,
     bnb_4bit_compute_dtype=torch.bfloat16,
@@ -42,18 +39,18 @@ bnb_config = BitsAndBytesConfig(
     bnb_4bit_quant_type="nf4",
 )
 
-# ==============================================================
-# Utility: Prompt Formatting
-# ==============================================================
+# -------------------------
+# Helper: Format prompt
+# -------------------------
 def format_prompt(instruction, inp, output):
     if inp and inp.strip():
         return f"### Instruction:\n{instruction}\n\n### Input:\n{inp}\n\n### Response:\n{output}"
     else:
         return f"### Instruction:\n{instruction}\n\n### Response:\n{output}"
 
-# ==============================================================
-# Load Dataset
-# ==============================================================
+# -------------------------
+# Load dataset
+# -------------------------
 records = []
 with open(INSTRUCTION_JSONL, "r", encoding="utf-8") as f:
     for line in f:
@@ -64,17 +61,18 @@ with open(INSTRUCTION_JSONL, "r", encoding="utf-8") as f:
         records.append({"instruction": inst, "input": inp, "output": out})
 
 print(f"Loaded {len(records)} instruction samples.")
-
 random.shuffle(records)
 texts = [format_prompt(r["instruction"], r["input"], r["output"]) for r in records]
+
 dataset = Dataset.from_dict({"text": texts})
 dataset = dataset.train_test_split(test_size=0.1, seed=42)
-train_ds, val_ds = dataset["train"], dataset["test"]
+train_ds = dataset["train"]
+val_ds = dataset["test"]
 print(f"Train size: {len(train_ds)}, Val size: {len(val_ds)}")
 
-# ==============================================================
+# -------------------------
 # Tokenizer
-# ==============================================================
+# -------------------------
 tokenizer = AutoTokenizer.from_pretrained(PHASE1_TOKENIZER_DIR, use_fast=True)
 tokenizer.pad_token = tokenizer.eos_token
 
@@ -87,22 +85,30 @@ train_tok = train_ds.map(tokenize_fn, batched=True, remove_columns=["text"])
 val_tok = val_ds.map(tokenize_fn, batched=True, remove_columns=["text"])
 data_collator = DataCollatorForLanguageModeling(tokenizer, mlm=False)
 
-# ==============================================================
-# Load Base + Phase 1 LoRA
-# ==============================================================
-print("Loading base model (4-bit quantized) and applying Phase 1 adapter...")
+# -------------------------
+# Load model + LoRA
+# -------------------------
+print("Loading base model (quantized) and applying Phase 1 adapter...")
 base = AutoModelForCausalLM.from_pretrained(
     BASE_MODEL_NAME,
     quantization_config=bnb_config,
-    device_map={"": 0},
-    torch_dtype=torch.bfloat16,
+    device_map="auto",
+    dtype=torch.bfloat16,
 )
+
 model = PeftModel.from_pretrained(base, PHASE1_ADAPTER_DIR)
+
+# ✅ Enable trainable LoRA parameters
+model.train()
+for name, param in model.named_parameters():
+    if "lora" in name.lower():
+        param.requires_grad = True
+
 model.print_trainable_parameters()
 
-# ==============================================================
-# Training Setup
-# ==============================================================
+# -------------------------
+# Training setup
+# -------------------------
 training_args = TrainingArguments(
     output_dir=OUTPUT_DIR,
     num_train_epochs=NUM_EPOCHS,
@@ -112,7 +118,7 @@ training_args = TrainingArguments(
     learning_rate=LR,
     warmup_ratio=0.03,
     fp16=True,
-    evaluation_strategy="epoch",
+    eval_strategy="epoch",  # ✅ new argument name (was evaluation_strategy)
     save_strategy="epoch",
     logging_steps=50,
     save_total_limit=3,
@@ -129,65 +135,34 @@ trainer = Trainer(
     tokenizer=tokenizer,
 )
 
-# ==============================================================
+# -------------------------
 # Train
-# ==============================================================
+# -------------------------
 trainer.train(resume_from_checkpoint=False)
 
-# ==============================================================
-# Save Phase 2 Adapter and Tokenizer
-# ==============================================================
+# -------------------------
+# Save model + metadata
+# -------------------------
 os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+print("Saving LoRA adapter and tokenizer...")
 model.save_pretrained(OUTPUT_DIR)
 tokenizer.save_pretrained(OUTPUT_DIR)
-trainer.save_state()
 
-# ==============================================================
-# Merge Adapter with Base for Deployment
-# ==============================================================
-print("\nMerging adapter into base model for AWS deployment...")
-merged_model_dir = os.path.join(OUTPUT_DIR, "merged_model")
-os.makedirs(merged_model_dir, exist_ok=True)
-
-merged_model = model.merge_and_unload()
-merged_model.save_pretrained(merged_model_dir, safe_serialization=True)
-tokenizer.save_pretrained(merged_model_dir)
-
-# ==============================================================
-# Save Metadata for Version Tracking
-# ==============================================================
+# Save metadata for reproducibility
 metadata = {
     "base_model": BASE_MODEL_NAME,
     "phase1_adapter": PHASE1_ADAPTER_DIR,
-    "training_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-    "num_samples": len(records),
-    "epochs": NUM_EPOCHS,
+    "num_epochs": NUM_EPOCHS,
     "batch_size": BATCH_SIZE,
-    "learning_rate": LR,
     "grad_accum": GRAD_ACCUM,
+    "lr": LR,
+    "train_samples": len(train_ds),
+    "val_samples": len(val_ds),
     "max_length": MAX_LENGTH,
-    "train_size": len(train_ds),
-    "val_size": len(val_ds),
 }
 with open(os.path.join(OUTPUT_DIR, "training_metadata.json"), "w") as f:
-    json.dump(metadata, f, indent=4)
+    json.dump(metadata, f, indent=2)
 
-# ==============================================================
-# Summary
-# ==============================================================
-print("\n✅ Phase 2 Instruction Fine-Tuning Complete!")
-print(f"📁 Adapter + Trainer Checkpoints: {OUTPUT_DIR}")
-print(f"📦 Deployment-Ready Merged Model: {merged_model_dir}")
-print(f"🧾 Metadata Saved: {os.path.join(OUTPUT_DIR, 'training_metadata.json')}")
-print("\nTo load for inference on AWS:")
-print(f"""
-from transformers import AutoModelForCausalLM, AutoTokenizer
-
-tokenizer = AutoTokenizer.from_pretrained("{merged_model_dir}")
-model = AutoModelForCausalLM.from_pretrained("{merged_model_dir}", torch_dtype=torch.bfloat16, device_map="auto")
-
-prompt = "Explain reinforcement learning simply."
-inputs = tokenizer(prompt, return_tensors="pt").to("cuda")
-outputs = model.generate(**inputs, max_new_tokens=300)
-print(tokenizer.decode(outputs[0], skip_special_tokens=True))
-""")
+print("\n✅ Phase 2 instruction fine-tuning complete.")
+print(f"Model adapter and tokenizer saved at: {OUTPUT_DIR}")
