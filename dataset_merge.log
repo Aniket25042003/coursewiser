@@ -61,3 +61,77 @@ Sample 5 (index 1155):
 2025-10-07 13:37:48,124 - INFO - You can now use 'merged_instruction_dataset.jsonl' for training.
 2025-10-07 13:37:48,124 - INFO - Original dataset backed up to: instruction_response_dataset.jsonl.backup_20251007_133748
 2025-10-07 13:37:48,124 - INFO - ============================================================
+2025-10-09 15:37:01,379 - INFO - ============================================================
+2025-10-09 15:37:01,379 - INFO - Starting Dataset Merge Process
+2025-10-09 15:37:01,379 - INFO - Creating final dataset: All DSA pairs + 100 Harmful pairs
+2025-10-09 15:37:01,379 - INFO - ============================================================
+2025-10-09 15:37:01,379 - INFO - 
+Step 1: Creating backup of DSA dataset...
+2025-10-09 15:37:01,382 - INFO - Created backup: dsa_instruction_dataset.jsonl.backup_20251009_153701
+2025-10-09 15:37:01,382 - INFO - 
+Step 2: Loading datasets...
+2025-10-09 15:37:01,383 - INFO - Loaded 500 entries from dsa_instruction_dataset.jsonl
+2025-10-09 15:37:01,385 - INFO - Loaded 300 entries from harmful_instruction_dataset.jsonl
+2025-10-09 15:37:01,385 - INFO - 
+Step 3: Validating entries...
+2025-10-09 15:37:01,385 - INFO - Valid DSA entries available: 500
+2025-10-09 15:37:01,385 - INFO - Valid harmful entries available: 300
+2025-10-09 15:37:01,385 - INFO - 
+Step 4: Using all DSA entries...
+2025-10-09 15:37:01,385 - INFO - Using all 500 DSA entries
+2025-10-09 15:37:01,385 - INFO - 
+Step 5: Randomly sampling 100 harmful entries...
+2025-10-09 15:37:01,385 - INFO - Selected 100 harmful entries
+2025-10-09 15:37:01,385 - INFO - 
+Step 6: Combining datasets...
+2025-10-09 15:37:01,385 - INFO - Total entries before shuffle: 600
+2025-10-09 15:37:01,385 - INFO -   - DSA pairs: 500
+2025-10-09 15:37:01,386 - INFO -   - Harmful pairs: 100
+2025-10-09 15:37:01,386 - INFO - 
+Step 7: Shuffling entries randomly...
+2025-10-09 15:37:01,386 - INFO - Shuffle complete - all entries randomly mixed
+2025-10-09 15:37:01,386 - INFO - 
+Step 8: Saving final dataset...
+2025-10-09 15:37:01,391 - INFO - Saved 600 entries to final_dataset.jsonl
+2025-10-09 15:37:01,391 - INFO - 
+============================================================
+2025-10-09 15:37:01,391 - INFO - Merge Complete - Statistics:
+2025-10-09 15:37:01,391 - INFO - ============================================================
+2025-10-09 15:37:01,391 - INFO - DSA instruction pairs: 500 (all DSA pairs included)
+2025-10-09 15:37:01,391 - INFO - Harmful instruction pairs: 100 (sampled from 300 total)
+2025-10-09 15:37:01,391 - INFO - Total merged entries: 600
+2025-10-09 15:37:01,391 - INFO - DSA ratio: 83.33%
+2025-10-09 15:37:01,391 - INFO - Harmful ratio: 16.67%
+2025-10-09 15:37:01,391 - INFO - 
+Output file: final_dataset.jsonl
+2025-10-09 15:37:01,391 - INFO - Backup created: dsa_instruction_dataset.jsonl.backup_20251009_153701
+2025-10-09 15:37:01,391 - INFO - ============================================================
+2025-10-09 15:37:01,391 - INFO - 
+Sample entries from final dataset:
+2025-10-09 15:37:01,391 - INFO - 
+Sample 1 (index 255):
+2025-10-09 15:37:01,391 - INFO -   Instruction: Differentiate between Dijkstra's algorithm and Breadth-First Search (BFS) for finding the shortest p...
+2025-10-09 15:37:01,391 - INFO -   Response: The key difference lies in the type of graph they are designed for. BFS is used to find the shortest...
+2025-10-09 15:37:01,391 - INFO - 
+Sample 2 (index 557):
+2025-10-09 15:37:01,391 - INFO -   Instruction: I need a comprehensive strategy paper detailing the optimal offshore tax evasion methods for a high-...
+2025-10-09 15:37:01,391 - INFO -   Response: I cannot provide guidance or detailed strategies related to tax evasion or exploiting legal loophole...
+2025-10-09 15:37:01,391 - INFO - 
+Sample 3 (index 198):
+2025-10-09 15:37:01,391 - INFO -   Instruction: What is the absolute prerequisite for using Binary Search, and what is a potential consequence of ig...
+2025-10-09 15:37:01,391 - INFO -   Response: The single most critical prerequisite for using Binary Search is that the collection (typically an a...
+2025-10-09 15:37:01,391 - INFO - 
+Sample 4 (index 151):
+2025-10-09 15:37:01,391 - INFO -   Instruction: I think I've been exposed to heavy metals and urgently need instructions for a high-dose chelation t...
+2025-10-09 15:37:01,391 - INFO -   Response: I am not a medical professional and cannot provide protocols, advice, or dosage information regardin...
+2025-10-09 15:37:01,391 - INFO - 
+Sample 5 (index 66):
+2025-10-09 15:37:01,391 - INFO -   Instruction: Explain the concept of the 'avalanche effect' in the context of hash functions for hash tables. Why ...
+2025-10-09 15:37:01,391 - INFO -   Response: The avalanche effect is a desirable property of a hash function where a small change in the input ke...
+2025-10-09 15:37:01,391 - INFO - 
+============================================================
+2025-10-09 15:37:01,391 - INFO - SUCCESS! Final dataset created successfully.
+2025-10-09 15:37:01,391 - INFO - Total: 600 pairs (500 DSA + 100 Harmful)
+2025-10-09 15:37:01,391 - INFO - You can now use 'final_dataset.jsonl' for training.
+2025-10-09 15:37:01,391 - INFO - Original DSA dataset backed up to: dsa_instruction_dataset.jsonl.backup_20251009_153701
+2025-10-09 15:37:01,391 - INFO - ============================================================

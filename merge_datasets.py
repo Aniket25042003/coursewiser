@@ -15,9 +15,10 @@ logging.basicConfig(
 )
 
 # Configuration
-MAIN_DATASET = "instruction_response_dataset.jsonl"
-HARMFUL_DATASET = "harmful_instruction_dataset.jsonl"
-OUTPUT_DATASET = "merged_instruction_dataset.jsonl"
+DSA_DATASET = "dsa_instruction_dataset.jsonl"  # DSA instruction-response pairs (all 500 will be used)
+HARMFUL_DATASET = "harmful_instruction_dataset.jsonl"  # Harmful instruction-response pairs
+OUTPUT_DATASET = "final_dataset.jsonl"
+HARMFUL_SAMPLE_SIZE = 100  # Number of harmful pairs to randomly select
 BACKUP_SUFFIX = f".backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
 # Set random seed for reproducibility (optional - comment out for different results each time)
@@ -90,59 +91,77 @@ def main():
     """Main function to merge datasets."""
     logging.info("="*60)
     logging.info("Starting Dataset Merge Process")
+    logging.info(f"Creating final dataset: All DSA pairs + {HARMFUL_SAMPLE_SIZE} Harmful pairs")
     logging.info("="*60)
     
-    # Step 1: Create backup of main dataset
-    logging.info("\nStep 1: Creating backup of main dataset...")
-    backup_path = create_backup(MAIN_DATASET)
+    # Step 1: Create backup of DSA dataset
+    logging.info("\nStep 1: Creating backup of DSA dataset...")
+    backup_path = create_backup(DSA_DATASET)
     
     # Step 2: Load both datasets
     logging.info("\nStep 2: Loading datasets...")
-    main_entries = load_jsonl(MAIN_DATASET)
+    dsa_entries = load_jsonl(DSA_DATASET)
     harmful_entries = load_jsonl(HARMFUL_DATASET)
     
     # Step 3: Validate entries
     logging.info("\nStep 3: Validating entries...")
-    valid_main = [e for e in main_entries if validate_entry(e)]
+    valid_dsa = [e for e in dsa_entries if validate_entry(e)]
     valid_harmful = [e for e in harmful_entries if validate_entry(e)]
     
-    if len(valid_main) < len(main_entries):
-        logging.warning(f"Filtered out {len(main_entries) - len(valid_main)} invalid entries from main dataset")
+    if len(valid_dsa) < len(dsa_entries):
+        logging.warning(f"Filtered out {len(dsa_entries) - len(valid_dsa)} invalid entries from DSA dataset")
     if len(valid_harmful) < len(harmful_entries):
         logging.warning(f"Filtered out {len(harmful_entries) - len(valid_harmful)} invalid entries from harmful dataset")
     
-    logging.info(f"Valid main entries: {len(valid_main)}")
-    logging.info(f"Valid harmful entries: {len(valid_harmful)}")
+    logging.info(f"Valid DSA entries available: {len(valid_dsa)}")
+    logging.info(f"Valid harmful entries available: {len(valid_harmful)}")
     
-    # Step 4: Combine datasets
-    logging.info("\nStep 4: Combining datasets...")
-    combined_entries = valid_main + valid_harmful
+    # Step 4: Use all DSA entries (no sampling needed)
+    logging.info(f"\nStep 4: Using all DSA entries...")
+    sampled_dsa = valid_dsa
+    logging.info(f"Using all {len(sampled_dsa)} DSA entries")
+    
+    # Step 5: Randomly sample harmful entries
+    logging.info(f"\nStep 5: Randomly sampling {HARMFUL_SAMPLE_SIZE} harmful entries...")
+    if len(valid_harmful) < HARMFUL_SAMPLE_SIZE:
+        logging.warning(f"Only {len(valid_harmful)} harmful entries available, using all of them")
+        sampled_harmful = valid_harmful
+    else:
+        sampled_harmful = random.sample(valid_harmful, HARMFUL_SAMPLE_SIZE)
+    logging.info(f"Selected {len(sampled_harmful)} harmful entries")
+    
+    # Step 6: Combine datasets (sampled DSA + sampled harmful)
+    logging.info("\nStep 6: Combining datasets...")
+    combined_entries = sampled_dsa + sampled_harmful
     total_before_shuffle = len(combined_entries)
     logging.info(f"Total entries before shuffle: {total_before_shuffle}")
+    logging.info(f"  - DSA pairs: {len(sampled_dsa)}")
+    logging.info(f"  - Harmful pairs: {len(sampled_harmful)}")
     
-    # Step 5: Shuffle randomly
-    logging.info("\nStep 5: Shuffling entries randomly...")
+    # Step 7: Shuffle randomly
+    logging.info("\nStep 7: Shuffling entries randomly...")
     random.shuffle(combined_entries)
-    logging.info("Shuffle complete")
+    logging.info("Shuffle complete - all entries randomly mixed")
     
-    # Step 6: Save merged dataset
-    logging.info("\nStep 6: Saving merged dataset...")
+    # Step 8: Save final dataset
+    logging.info("\nStep 8: Saving final dataset...")
     save_jsonl(combined_entries, OUTPUT_DATASET)
     
-    # Step 7: Statistics
+    # Step 9: Statistics
     logging.info("\n" + "="*60)
     logging.info("Merge Complete - Statistics:")
     logging.info("="*60)
-    logging.info(f"Main dataset entries: {len(valid_main)}")
-    logging.info(f"Harmful dataset entries: {len(valid_harmful)}")
+    logging.info(f"DSA instruction pairs: {len(sampled_dsa)} (all DSA pairs included)")
+    logging.info(f"Harmful instruction pairs: {len(sampled_harmful)} (sampled from {len(valid_harmful)} total)")
     logging.info(f"Total merged entries: {len(combined_entries)}")
-    logging.info(f"Harmful instruction ratio: {len(valid_harmful)/len(combined_entries)*100:.2f}%")
+    logging.info(f"DSA ratio: {len(sampled_dsa)/len(combined_entries)*100:.2f}%")
+    logging.info(f"Harmful ratio: {len(sampled_harmful)/len(combined_entries)*100:.2f}%")
     logging.info(f"\nOutput file: {OUTPUT_DATASET}")
     logging.info(f"Backup created: {backup_path}")
     logging.info("="*60)
     
-    # Step 8: Sample verification
-    logging.info("\nSample entries from merged dataset:")
+    # Step 10: Sample verification
+    logging.info("\nSample entries from final dataset:")
     sample_indices = random.sample(range(len(combined_entries)), min(5, len(combined_entries)))
     for i, idx in enumerate(sample_indices, 1):
         entry = combined_entries[idx]
@@ -151,9 +170,10 @@ def main():
         logging.info(f"  Response: {entry['response'][:100]}...")
     
     logging.info("\n" + "="*60)
-    logging.info("SUCCESS! Datasets merged successfully.")
+    logging.info("SUCCESS! Final dataset created successfully.")
+    logging.info(f"Total: {len(combined_entries)} pairs ({len(sampled_dsa)} DSA + {len(sampled_harmful)} Harmful)")
     logging.info(f"You can now use '{OUTPUT_DATASET}' for training.")
-    logging.info(f"Original dataset backed up to: {backup_path}")
+    logging.info(f"Original DSA dataset backed up to: {backup_path}")
     logging.info("="*60)
 
 

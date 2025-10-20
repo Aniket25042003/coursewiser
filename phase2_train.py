@@ -23,7 +23,7 @@ PHASE1_TOKENIZER_DIR = "./phase1_llama3_3b_lora"
 INSTRUCTION_JSONL = "merged_instruction_dataset.jsonl"
 OUTPUT_DIR = "./phase2_instruct_lora"
 
-NUM_EPOCHS = 5
+NUM_EPOCHS = 2
 BATCH_SIZE = 2
 GRAD_ACCUM = 8
 LR = 5e-5
