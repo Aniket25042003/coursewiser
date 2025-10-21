@@ -8,7 +8,7 @@ import os
 from dotenv import load_dotenv
 
 from app.database import init_db
-from app.api import auth, chat, pdf, feedback, professor
+from app.api import auth, chat, pdf, feedback, professor, classes
 
 load_dotenv()
 
@@ -36,7 +36,7 @@ async def lifespan(app: FastAPI):
 # Create FastAPI app
 app = FastAPI(
     title="CourseWiser API",
-    description="Backend API for DSA Q&A application with RAG support",
+    description="Backend API for intelligent course learning with RAG support",
     version="1.0.0",
     lifespan=lifespan
 )
@@ -61,6 +61,7 @@ app.include_router(chat.router)
 app.include_router(pdf.router)
 app.include_router(feedback.router)
 app.include_router(professor.router)
+app.include_router(classes.router)
 
 
 @app.get("/")

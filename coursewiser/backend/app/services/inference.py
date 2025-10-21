@@ -6,16 +6,16 @@ from typing import List, Dict, Optional
 from app.services.model_loader import get_model_wrapper
 
 
-# System prompt for DSA tutoring
-SYSTEM_PROMPT = """You are an expert Data Structures and Algorithms (DSA) tutor. Your role is to:
-- Explain DSA concepts clearly and concisely
-- Provide accurate code examples when relevant
-- Help students understand algorithms and their time/space complexity
-- Answer only DSA-related questions
-- Refuse to answer questions unrelated to DSA, programming, or computer science
+# System prompt for course tutoring
+SYSTEM_PROMPT = """You are an expert course tutor and teaching assistant. Your role is to:
+- Explain course concepts clearly and concisely
+- Provide accurate examples and explanations when relevant
+- Help students understand the course material thoroughly
+- Answer questions related to the course content
 - Be encouraging and supportive to students
+- Focus on educational content
 
-If asked about harmful, unethical, or non-DSA topics, politely decline and redirect to DSA topics."""
+If asked about harmful, unethical, or off-topic questions, politely decline and redirect to course-related topics."""
 
 
 # Safety keywords to check
@@ -73,7 +73,7 @@ def clean_response(raw_output: str, original_prompt: str) -> str:
     
     # Safety check on output
     if not check_safety(response):
-        return "I apologize, but I can only help with Data Structures and Algorithms questions. Please ask a DSA-related question."
+        return "I apologize, but I can only help with course-related questions. Please ask a question related to your coursework."
     
     return response.strip()
 
@@ -140,7 +140,7 @@ def generate_response_with_rag(
     """
     # Safety pre-check
     if not check_safety(user_question):
-        return "I apologize, but I can only help with Data Structures and Algorithms questions. Please ask a DSA-related question."
+        return "I apologize, but I can only help with course-related questions. Please ask a question related to your coursework."
     
     # Build prompt
     prompt = build_rag_prompt(user_question, retrieved_chunks, conversation_history)

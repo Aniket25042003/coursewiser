@@ -81,7 +81,7 @@ class GeminiService:
         Returns:
             Formatted prompt string
         """
-        prompt = """You are an educational data analyst helping a professor improve their Data Structures and Algorithms (DSA) course.
+        prompt = """You are an educational data analyst helping a professor improve their course.
 
 Below are student questions that received low satisfaction ratings (thumbs down) or negative feedback. Your task is to:
 

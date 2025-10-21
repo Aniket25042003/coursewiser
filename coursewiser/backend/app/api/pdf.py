@@ -1,7 +1,7 @@
 """
 PDF upload and management API endpoints
 """
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import List
@@ -20,6 +20,7 @@ router = APIRouter(prefix="/api/pdf", tags=["pdf"])
 class UploadPdfRequest(BaseModel):
     firebase_storage_path: str
     filename: str
+    class_id: int  # Associate PDF with a class
 
 
 class PdfDocumentResponse(BaseModel):
@@ -68,6 +69,7 @@ async def upload_pdf(
         # Create PDF document record
         pdf_doc = PdfDocument(
             user_id=current_user.id,
+            class_id=request.class_id,
             filename=request.filename,
             firebase_storage_path=request.firebase_storage_path
         )
@@ -120,11 +122,13 @@ async def upload_pdf(
 @router.post("/upload_file")
 async def upload_file(
     file: UploadFile = File(...),
+    class_id: int = Form(...),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
     Upload PDF file directly (alternative to Firebase Storage)
+    Now accepts class_id to associate PDF with a specific class
     """
     if not file.filename.endswith('.pdf'):
         raise HTTPException(status_code=400, detail="Only PDF files are allowed")
@@ -149,6 +153,7 @@ async def upload_file(
         # Create PDF document record
         pdf_doc = PdfDocument(
             user_id=current_user.id,
+            class_id=class_id,
             filename=file.filename,
             firebase_storage_path=tmp_path  # Store local path for now
         )
@@ -202,13 +207,20 @@ async def upload_file(
 
 @router.get("/user_pdfs", response_model=List[PdfDocumentResponse])
 async def get_user_pdfs(
+    class_id: int = None,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
-    Get all PDFs uploaded by the current user
+    Get all PDFs uploaded by the current user for a specific class
+    If class_id is provided, filter by that class
     """
-    pdfs = db.query(PdfDocument).filter(PdfDocument.user_id == current_user.id).all()
+    query = db.query(PdfDocument).filter(PdfDocument.user_id == current_user.id)
+    
+    if class_id is not None:
+        query = query.filter(PdfDocument.class_id == class_id)
+    
+    pdfs = query.all()
     
     result = []
     for pdf in pdfs:

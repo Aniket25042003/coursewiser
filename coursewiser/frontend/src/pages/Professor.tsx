@@ -3,9 +3,8 @@
  */
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, BookOpen, TrendingDown, Download, Sparkles, BarChart3 } from 'lucide-react';
-import { logOut } from '../services/firebase';
-import { getFeedbackStats, getLowRatedChats, getGeminiSummary, exportLowRatedCsv } from '../services/api';
+import { LogOut, BookOpen, TrendingDown, Download, Sparkles, BarChart3, GraduationCap } from 'lucide-react';
+import { getFeedbackStats, getLowRatedChats, getGeminiSummary, exportLowRatedCsv, getMyClasses, Class } from '../services/api';
 
 const Professor: React.FC = () => {
   const navigate = useNavigate();
@@ -15,15 +14,36 @@ const Professor: React.FC = () => {
   const [geminiSummary, setGeminiSummary] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [days, setDays] = useState(30);
+  const [classes, setClasses] = useState<Class[]>([]);
+  const [selectedClassId, setSelectedClassId] = useState<number | null>(null);
 
   useEffect(() => {
-    loadStats();
-    loadLowRatedChats();
-  }, [days]);
+    loadClasses();
+  }, []);
+
+  useEffect(() => {
+    if (selectedClassId) {
+      loadStats();
+      loadLowRatedChats();
+    }
+  }, [days, selectedClassId]);
+
+  const loadClasses = async () => {
+    try {
+      const data = await getMyClasses();
+      setClasses(data);
+      if (data.length > 0 && !selectedClassId) {
+        setSelectedClassId(data[0].id);
+      }
+    } catch (error) {
+      console.error('Error loading classes:', error);
+    }
+  };
 
   const loadStats = async () => {
+    if (!selectedClassId) return;
     try {
-      const data = await getFeedbackStats(days);
+      const data = await getFeedbackStats(selectedClassId, days);
       setStats(data);
     } catch (error) {
       console.error('Error loading stats:', error);
@@ -31,8 +51,9 @@ const Professor: React.FC = () => {
   };
 
   const loadLowRatedChats = async () => {
+    if (!selectedClassId) return;
     try {
-      const data = await getLowRatedChats(days, 50);
+      const data = await getLowRatedChats(selectedClassId, days, 50);
       setLowRatedChats(data);
     } catch (error) {
       console.error('Error loading low-rated chats:', error);
@@ -40,9 +61,10 @@ const Professor: React.FC = () => {
   };
 
   const handleGenerateSummary = async () => {
+    if (!selectedClassId) return;
     setLoading(true);
     try {
-      const data = await getGeminiSummary(days);
+      const data = await getGeminiSummary(selectedClassId, days);
       setGeminiSummary(data.summary);
     } catch (error: any) {
       console.error('Error generating summary:', error);
@@ -53,8 +75,9 @@ const Professor: React.FC = () => {
   };
 
   const handleExportCsv = async () => {
+    if (!selectedClassId) return;
     try {
-      const blob = await exportLowRatedCsv(days);
+      const blob = await exportLowRatedCsv(selectedClassId, days);
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -70,8 +93,9 @@ const Professor: React.FC = () => {
 
   const handleLogout = async () => {
     try {
-      await logOut();
       localStorage.removeItem('user');
+      localStorage.removeItem('professorToken');
+      window.dispatchEvent(new Event('logout'));
       navigate('/login');
     } catch (error) {
       console.error('Error logging out:', error);
@@ -92,6 +116,21 @@ const Professor: React.FC = () => {
               </div>
             </div>
             <div className="flex items-center gap-4">
+              {/* Class Selector */}
+              {classes.length > 0 && (
+                <select
+                  value={selectedClassId || ''}
+                  onChange={(e) => setSelectedClassId(Number(e.target.value))}
+                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option value="">Select a class</option>
+                  {classes.map((cls) => (
+                    <option key={cls.id} value={cls.id}>
+                      {cls.name}
+                    </option>
+                  ))}
+                </select>
+              )}
               <select
                 value={days}
                 onChange={(e) => setDays(Number(e.target.value))}
@@ -114,14 +153,54 @@ const Professor: React.FC = () => {
               </button>
             </div>
           </div>
+          
+          {/* Navigation Tabs */}
+          <div className="flex gap-4 border-t pt-2">
+            <button
+              onClick={() => navigate('/professor')}
+              className="px-4 py-2 text-sm font-medium text-indigo-600 border-b-2 border-indigo-600"
+            >
+              <BarChart3 className="w-4 h-4 inline mr-2" />
+              Analytics Dashboard
+            </button>
+            <button
+              onClick={() => navigate('/professor/classes')}
+              className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-indigo-600 hover:border-b-2 hover:border-indigo-600"
+            >
+              <GraduationCap className="w-4 h-4 inline mr-2" />
+              Class Management
+            </button>
+          </div>
         </div>
       </header>
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        {/* Stats Cards */}
-        {stats && (
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        {/* No class selected message */}
+        {classes.length === 0 ? (
+          <div className="bg-white rounded-lg shadow-sm p-12 text-center">
+            <GraduationCap className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">No Classes Yet</h3>
+            <p className="text-gray-600 mb-6">Create your first class to start tracking analytics</p>
+            <button
+              onClick={() => navigate('/professor/classes')}
+              className="bg-indigo-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-indigo-700 transition-colors inline-flex items-center gap-2"
+            >
+              <GraduationCap className="w-5 h-5" />
+              Go to Class Management
+            </button>
+          </div>
+        ) : !selectedClassId ? (
+          <div className="bg-white rounded-lg shadow-sm p-12 text-center">
+            <BarChart3 className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">Select a Class</h3>
+            <p className="text-gray-600">Choose a class from the dropdown above to view analytics</p>
+          </div>
+        ) : (
+          <>
+            {/* Stats Cards */}
+            {stats && (
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <div className="bg-white rounded-lg shadow p-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -173,101 +252,103 @@ const Professor: React.FC = () => {
                 <div className="text-indigo-500 text-2xl">📊</div>
               </div>
             </div>
-          </div>
-        )}
-
-        {/* AI Summary Section */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-              <Sparkles className="text-purple-500" size={24} />
-              AI-Powered Insights
-            </h2>
-            <button
-              onClick={handleGenerateSummary}
-              disabled={loading}
-              className="flex items-center gap-2 px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors disabled:opacity-50"
-            >
-              {loading ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  Generating...
-                </>
-              ) : (
-                <>
-                  <Sparkles size={16} />
-                  Generate Summary
-                </>
-              )}
-            </button>
-          </div>
-
-          {geminiSummary ? (
-            <div className="prose max-w-none">
-              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                <pre className="whitespace-pre-wrap text-sm text-gray-800 font-sans">
-                  {geminiSummary}
-                </pre>
               </div>
-            </div>
-          ) : (
-            <p className="text-gray-500 italic">
-              Click "Generate Summary" to get AI-powered insights from Gemini about common student issues.
-            </p>
-          )}
-        </div>
+            )}
 
-        {/* Low-Rated Chats */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-              <TrendingDown className="text-red-500" size={24} />
-              Low-Rated Chats ({lowRatedChats.length})
-            </h2>
-            <button
-              onClick={handleExportCsv}
-              className="flex items-center gap-2 px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors"
-            >
-              <Download size={16} />
-              Export CSV
-            </button>
-          </div>
+            {/* AI Summary Section */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                  <Sparkles className="text-purple-500" size={24} />
+                  AI-Powered Insights
+                </h2>
+                <button
+                  onClick={handleGenerateSummary}
+                  disabled={loading}
+                  className="flex items-center gap-2 px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors disabled:opacity-50"
+                >
+                  {loading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles size={16} />
+                      Generate Summary
+                    </>
+                  )}
+                </button>
+              </div>
 
-          {lowRatedChats.length === 0 ? (
-            <p className="text-gray-500 italic">No low-rated feedback in the selected period.</p>
-          ) : (
-            <div className="space-y-4 max-h-96 overflow-y-auto">
-              {lowRatedChats.slice(0, 20).map((chat) => (
-                <div key={chat.chat_id} className="border border-gray-200 rounded-lg p-4 hover:border-red-300 transition-colors">
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <p className="text-sm text-gray-500">
-                        Student: {chat.student_name} • {new Date(chat.timestamp).toLocaleString()}
-                      </p>
-                    </div>
-                    <span className="text-red-500">👎</span>
-                  </div>
-                  <div className="space-y-2">
-                    <div>
-                      <p className="text-xs font-semibold text-gray-700">Question:</p>
-                      <p className="text-sm text-gray-800">{chat.message}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs font-semibold text-gray-700">Response:</p>
-                      <p className="text-sm text-gray-600 line-clamp-3">{chat.response}</p>
-                    </div>
-                    {chat.comment && (
-                      <div>
-                        <p className="text-xs font-semibold text-gray-700">Student Comment:</p>
-                        <p className="text-sm text-red-600 italic">{chat.comment}</p>
-                      </div>
-                    )}
+              {geminiSummary ? (
+                <div className="prose max-w-none">
+                  <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                    <pre className="whitespace-pre-wrap text-sm text-gray-800 font-sans">
+                      {geminiSummary}
+                    </pre>
                   </div>
                 </div>
-              ))}
+              ) : (
+                <p className="text-gray-500 italic">
+                  Click "Generate Summary" to get AI-powered insights from Gemini about common student issues.
+                </p>
+              )}
             </div>
-          )}
-        </div>
+
+            {/* Low-Rated Chats */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                  <TrendingDown className="text-red-500" size={24} />
+                  Low-Rated Chats ({lowRatedChats.length})
+                </h2>
+                <button
+                  onClick={handleExportCsv}
+                  className="flex items-center gap-2 px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors"
+                >
+                  <Download size={16} />
+                  Export CSV
+                </button>
+              </div>
+
+              {lowRatedChats.length === 0 ? (
+                <p className="text-gray-500 italic">No low-rated feedback in the selected period.</p>
+              ) : (
+                <div className="space-y-4 max-h-96 overflow-y-auto">
+                  {lowRatedChats.slice(0, 20).map((chat) => (
+                    <div key={chat.chat_id} className="border border-gray-200 rounded-lg p-4 hover:border-red-300 transition-colors">
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <p className="text-sm text-gray-500">
+                            Student: {chat.student_name} • {new Date(chat.timestamp).toLocaleString()}
+                          </p>
+                        </div>
+                        <span className="text-red-500">👎</span>
+                      </div>
+                      <div className="space-y-2">
+                        <div>
+                          <p className="text-xs font-semibold text-gray-700">Question:</p>
+                          <p className="text-sm text-gray-800">{chat.message}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold text-gray-700">Response:</p>
+                          <p className="text-sm text-gray-600 line-clamp-3">{chat.response}</p>
+                        </div>
+                        {chat.comment && (
+                          <div>
+                            <p className="text-xs font-semibold text-gray-700">Student Comment:</p>
+                            <p className="text-sm text-red-600 italic">{chat.comment}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

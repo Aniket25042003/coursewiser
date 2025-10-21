@@ -9,7 +9,7 @@ from typing import List, Optional
 from datetime import datetime, timedelta
 
 from app.database import get_db
-from app.models import User, Chat, Feedback
+from app.models import User, Chat, Feedback, Class
 from app.api.auth import get_current_user
 from app.services.gemini import get_gemini_service
 from app.utils import parse_sources_json
@@ -52,45 +52,61 @@ def verify_professor(current_user: User):
 
 @router.get("/stats", response_model=FeedbackSummaryStats)
 async def get_feedback_stats(
+    class_id: int,
     days: int = 30,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
-    Get summary statistics of student feedback
+    Get summary statistics of student feedback for a specific class
     
     Args:
+        class_id: ID of the class to get stats for
         days: Number of days to look back (default: 30)
     """
     verify_professor(current_user)
     
+    # Verify professor owns this class
+    cls = db.query(Class).filter(
+        Class.id == class_id,
+        Class.professor_id == current_user.id
+    ).first()
+    
+    if not cls:
+        raise HTTPException(status_code=404, detail="Class not found")
+    
     # Calculate date threshold
     date_threshold = datetime.utcnow() - timedelta(days=days)
     
-    # Total chats in period
+    # Total chats in period for this class
     total_chats = db.query(func.count(Chat.id)).filter(
-        Chat.timestamp >= date_threshold
+        Chat.timestamp >= date_threshold,
+        Chat.class_id == class_id
     ).scalar()
     
-    # Get feedback counts
+    # Get feedback counts for this class
     positive = db.query(func.count(Feedback.id)).join(Chat).filter(
         Chat.timestamp >= date_threshold,
+        Chat.class_id == class_id,
         Feedback.satisfaction_score == 1
     ).scalar()
     
     negative = db.query(func.count(Feedback.id)).join(Chat).filter(
         Chat.timestamp >= date_threshold,
+        Chat.class_id == class_id,
         Feedback.satisfaction_score == -1
     ).scalar()
     
     neutral = db.query(func.count(Feedback.id)).join(Chat).filter(
         Chat.timestamp >= date_threshold,
+        Chat.class_id == class_id,
         Feedback.satisfaction_score == 0
     ).scalar()
     
-    # Calculate average score
+    # Calculate average score for this class
     avg_score = db.query(func.avg(Feedback.satisfaction_score)).join(Chat).filter(
-        Chat.timestamp >= date_threshold
+        Chat.timestamp >= date_threshold,
+        Chat.class_id == class_id
     ).scalar()
     
     no_feedback = total_chats - (positive + negative + neutral)
@@ -107,29 +123,41 @@ async def get_feedback_stats(
 
 @router.get("/low_rated", response_model=List[LowRatedChat])
 async def get_low_rated_chats(
+    class_id: int,
     days: int = 30,
     limit: int = 100,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
-    Get all chats with low satisfaction ratings (thumbs down)
+    Get all chats with low satisfaction ratings (thumbs down) for a specific class
     
     Args:
+        class_id: ID of the class to get low-rated chats for
         days: Number of days to look back
         limit: Maximum number of results
     """
     verify_professor(current_user)
     
+    # Verify professor owns this class
+    cls = db.query(Class).filter(
+        Class.id == class_id,
+        Class.professor_id == current_user.id
+    ).first()
+    
+    if not cls:
+        raise HTTPException(status_code=404, detail="Class not found")
+    
     date_threshold = datetime.utcnow() - timedelta(days=days)
     
-    # Query for low-rated chats
+    # Query for low-rated chats in this class
     results = db.query(Chat, Feedback, User).join(
         Feedback, Chat.id == Feedback.chat_id
     ).join(
         User, Chat.user_id == User.id
     ).filter(
         Chat.timestamp >= date_threshold,
+        Chat.class_id == class_id,
         Feedback.satisfaction_score == -1
     ).order_by(Chat.timestamp.desc()).limit(limit).all()
     
@@ -150,33 +178,44 @@ async def get_low_rated_chats(
 
 @router.get("/summary", response_model=GeminiSummaryResponse)
 async def get_gemini_summary(
+    class_id: int,
     days: int = 30,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
-    Generate AI-powered summary of common student issues using Gemini
+    Generate AI-powered summary of common student issues using Gemini for a specific class
     
     This endpoint aggregates low-rated Q&A pairs and sends them to Gemini
     for analysis and summarization.
     """
     verify_professor(current_user)
     
+    # Verify professor owns this class
+    cls = db.query(Class).filter(
+        Class.id == class_id,
+        Class.professor_id == current_user.id
+    ).first()
+    
+    if not cls:
+        raise HTTPException(status_code=404, detail="Class not found")
+    
     date_threshold = datetime.utcnow() - timedelta(days=days)
     
-    # Get low-rated chats
+    # Get low-rated chats for this class
     results = db.query(Chat, Feedback, User).join(
         Feedback, Chat.id == Feedback.chat_id
     ).join(
         User, Chat.user_id == User.id
     ).filter(
         Chat.timestamp >= date_threshold,
+        Chat.class_id == class_id,
         Feedback.satisfaction_score == -1
     ).order_by(Chat.timestamp.desc()).limit(100).all()
     
     if not results:
         return {
-            "summary": "No low-rated feedback found in the specified time period.",
+            "summary": "No low-rated feedback found in the specified time period for this class.",
             "low_rated_count": 0,
             "generated_at": datetime.utcnow()
         }
@@ -205,14 +244,24 @@ async def get_gemini_summary(
 
 @router.get("/export_csv")
 async def export_low_rated_csv(
+    class_id: int,
     days: int = 30,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
-    Export low-rated Q&A pairs as CSV
+    Export low-rated Q&A pairs as CSV for a specific class
     """
     verify_professor(current_user)
+    
+    # Verify professor owns this class
+    cls = db.query(Class).filter(
+        Class.id == class_id,
+        Class.professor_id == current_user.id
+    ).first()
+    
+    if not cls:
+        raise HTTPException(status_code=404, detail="Class not found")
     
     date_threshold = datetime.utcnow() - timedelta(days=days)
     
@@ -222,6 +271,7 @@ async def export_low_rated_csv(
         User, Chat.user_id == User.id
     ).filter(
         Chat.timestamp >= date_threshold,
+        Chat.class_id == class_id,
         Feedback.satisfaction_score == -1
     ).order_by(Chat.timestamp.desc()).all()
     
@@ -252,6 +302,6 @@ async def export_low_rated_csv(
     return Response(
         content=csv_content,
         media_type="text/csv",
-        headers={"Content-Disposition": f"attachment; filename=low_rated_feedback_{datetime.now().strftime('%Y%m%d')}.csv"}
+        headers={"Content-Disposition": f"attachment; filename=low_rated_feedback_{cls.name}_{datetime.now().strftime('%Y%m%d')}.csv"}
     )
 

@@ -2,19 +2,23 @@
  * ChatBox component for displaying messages and handling user input
  */
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User as UserIcon } from 'lucide-react';
-import { sendChatMessage, ChatMessage } from '../services/api';
+import { Send, Bot, User as UserIcon, Paperclip } from 'lucide-react';
+import { sendChatMessage, ChatMessage, uploadPdfFile } from '../services/api';
 import FeedbackWidget from './FeedbackWidget';
 
 interface ChatBoxProps {
   selectedPdfIds?: number[];
+  classId?: number | null;
+  onUploadSuccess?: () => void;
 }
 
-const ChatBox: React.FC<ChatBoxProps> = ({ selectedPdfIds }) => {
+const ChatBox: React.FC<ChatBoxProps> = ({ selectedPdfIds, classId, onUploadSuccess }) => {
   const [messages, setMessages] = useState<Array<ChatMessage & { role: string }>>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -44,8 +48,13 @@ const ChatBox: React.FC<ChatBoxProps> = ({ selectedPdfIds }) => {
     setLoading(true);
 
     try {
-      // Send to API
-      const response = await sendChatMessage(userMessage, selectedPdfIds);
+      // Send to API - use classId if provided, otherwise use 1 as default
+      if (!classId) {
+        alert('Please select a class to start chatting');
+        setLoading(false);
+        return;
+      }
+      const response = await sendChatMessage(userMessage, classId, selectedPdfIds);
 
       // Add assistant response
       const assistantMessage = {
@@ -81,48 +90,59 @@ const ChatBox: React.FC<ChatBoxProps> = ({ selectedPdfIds }) => {
     }
   };
 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.toLowerCase().endsWith('.pdf')) {
+      alert('Only PDF files are allowed');
+      return;
+    }
+
+    if (!classId) {
+      alert('Please select a class first');
+      return;
+    }
+
+    setUploading(true);
+    try {
+      await uploadPdfFile(file, classId);
+      if (onUploadSuccess) {
+        onUploadSuccess();
+      }
+      alert('PDF uploaded successfully!');
+    } catch (error) {
+      console.error('Upload failed:', error);
+      alert('Failed to upload PDF');
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
   return (
-    <div className="flex flex-col h-full bg-white rounded-lg shadow-lg">
-      {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+    <div className="flex flex-col h-full bg-white rounded-xl shadow-lg border border-gray-200">
+      {/* Messages Area - Scrollable */}
+      <div className="flex-1 overflow-y-auto p-6 space-y-4">
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-gray-400">
-            <Bot size={64} className="mb-4 opacity-50" />
-            <p className="text-lg">Ask me anything about Data Structures & Algorithms!</p>
-            <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-2 max-w-2xl">
-              <button
-                onClick={() => setInput("Explain binary search trees")}
-                className="p-3 text-sm bg-gray-50 hover:bg-gray-100 rounded-lg text-left transition-colors"
-              >
-                Explain binary search trees
-              </button>
-              <button
-                onClick={() => setInput("What is time complexity?")}
-                className="p-3 text-sm bg-gray-50 hover:bg-gray-100 rounded-lg text-left transition-colors"
-              >
-                What is time complexity?
-              </button>
-              <button
-                onClick={() => setInput("Compare quicksort and mergesort")}
-                className="p-3 text-sm bg-gray-50 hover:bg-gray-100 rounded-lg text-left transition-colors"
-              >
-                Compare quicksort and mergesort
-              </button>
-              <button
-                onClick={() => setInput("Explain dynamic programming")}
-                className="p-3 text-sm bg-gray-50 hover:bg-gray-100 rounded-lg text-left transition-colors"
-              >
-                Explain dynamic programming
-              </button>
+            <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center mb-4 shadow-lg">
+              <Bot size={32} className="text-white" />
             </div>
+            <p className="text-xl font-semibold text-gray-700 mb-2">Start a conversation</p>
+            <p className="text-sm text-gray-500">Ask questions about your course materials</p>
           </div>
         ) : (
           messages.map((msg, idx) => (
-            <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div className={`flex gap-3 max-w-[80%] ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
+            <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-slide-up`}>
+              <div className={`flex gap-3 max-w-[85%] ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
                 {/* Avatar */}
-                <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
-                  msg.role === 'user' ? 'bg-indigo-500' : 'bg-green-500'
+                <div className={`flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center shadow-md ${
+                  msg.role === 'user' 
+                    ? 'bg-gradient-to-br from-indigo-500 to-purple-500' 
+                    : 'bg-gradient-to-br from-green-500 to-emerald-500'
                 }`}>
                   {msg.role === 'user' ? (
                     <UserIcon size={20} className="text-white" />
@@ -133,20 +153,22 @@ const ChatBox: React.FC<ChatBoxProps> = ({ selectedPdfIds }) => {
 
                 {/* Message Content */}
                 <div className="flex-1">
-                  <div className={`p-4 rounded-lg ${
+                  <div className={`p-4 rounded-2xl shadow-sm ${
                     msg.role === 'user' 
-                      ? 'bg-indigo-500 text-white' 
-                      : 'bg-gray-100 text-gray-800'
+                      ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white' 
+                      : 'bg-gray-50 text-gray-800 border border-gray-200'
                   }`}>
-                    <p className="whitespace-pre-wrap">{msg.role === 'user' ? msg.message : msg.response}</p>
+                    <p className="whitespace-pre-wrap leading-relaxed">{msg.role === 'user' ? msg.message : msg.response}</p>
                   </div>
 
                   {/* Sources */}
                   {msg.role === 'assistant' && msg.sources && msg.sources.length > 0 && (
-                    <div className="mt-2 text-xs text-gray-500">
-                      <p className="font-medium mb-1">Sources:</p>
+                    <div className="mt-3 flex flex-wrap gap-2">
                       {msg.sources.map((source: any, sidx: number) => (
-                        <p key={sidx}>📄 {source.filename} (chunk {source.chunk_index})</p>
+                        <div key={sidx} className="inline-flex items-center gap-1 px-3 py-1 bg-indigo-50 text-indigo-700 rounded-full text-xs font-medium border border-indigo-200">
+                          <span>📄</span>
+                          <span>{source.filename}</span>
+                        </div>
                       ))}
                     </div>
                   )}
@@ -183,24 +205,54 @@ const ChatBox: React.FC<ChatBoxProps> = ({ selectedPdfIds }) => {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input Area */}
-      <div className="border-t p-4">
-        <div className="flex gap-2">
+      {/* Input Area - Fixed at bottom with attachment button */}
+      <div className="border-t border-gray-200 p-4 bg-gray-50">
+        <div className="flex gap-2 items-end">
+          {/* Hidden file input */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".pdf"
+            onChange={handleFileUpload}
+            className="hidden"
+          />
+          
+          {/* Attachment button */}
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            className="p-3 text-gray-600 hover:text-indigo-600 hover:bg-white rounded-xl transition-all disabled:opacity-50"
+            title="Upload PDF"
+          >
+            {uploading ? (
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-indigo-500"></div>
+            ) : (
+              <Paperclip size={22} />
+            )}
+          </button>
+          
+          {/* Text input */}
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyPress}
-            placeholder="Ask a DSA question..."
-            className="flex-1 p-3 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            placeholder="Ask your question..."
+            className="flex-1 p-4 border border-gray-300 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white shadow-sm"
             rows={2}
             disabled={loading}
           />
+          
+          {/* Send button */}
           <button
             onClick={handleSend}
             disabled={loading || !input.trim()}
-            className="px-6 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+            className="p-3 bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-xl hover:from-indigo-600 hover:to-purple-600 shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center"
           >
-            <Send size={20} />
+            {loading ? (
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+            ) : (
+              <Send size={20} />
+            )}
           </button>
         </div>
       </div>

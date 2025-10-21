@@ -19,6 +19,7 @@ router = APIRouter(prefix="/api", tags=["chat"])
 
 class ChatRequest(BaseModel):
     message: str
+    class_id: int
     use_pdf_ids: Optional[List[int]] = None
     top_k: int = 3
     max_new_tokens: int = 200
@@ -76,23 +77,14 @@ async def chat(
             for chat in reversed(recent_chats)
         ]
         
-        # Retrieve relevant chunks from vector database
-        retrieved_chunks = []
-        if request.use_pdf_ids:
-            # Search specific PDFs
-            retrieved_chunks = rag_service.search(
-                query=request.message,
-                top_k=request.top_k,
-                user_id=current_user.id,
-                pdf_ids=request.use_pdf_ids
-            )
-        else:
-            # Search all user's PDFs
-            retrieved_chunks = rag_service.search(
-                query=request.message,
-                top_k=request.top_k,
-                user_id=current_user.id
-            )
+        # Retrieve relevant chunks from vector database (class materials + personal PDFs)
+        retrieved_chunks = rag_service.search(
+            query=request.message,
+            top_k=request.top_k,
+            user_id=current_user.id,
+            pdf_ids=request.use_pdf_ids,
+            class_id=request.class_id
+        )
         
         print(f"🔍 Retrieved {len(retrieved_chunks)} relevant chunks")
         
@@ -111,6 +103,7 @@ async def chat(
         # Save chat to database
         chat_record = Chat(
             user_id=current_user.id,
+            class_id=request.class_id,
             message=request.message,
             response=response_text,
             sources_json=sources_json

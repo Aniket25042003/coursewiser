@@ -7,9 +7,10 @@ import { getChatHistory, clearChatHistory, ChatMessage, getUserPdfs, PdfDocument
 
 interface HistoryListProps {
   onRefresh?: () => void;
+  classId?: number | null;
 }
 
-const HistoryList: React.FC<HistoryListProps> = ({ onRefresh }) => {
+const HistoryList: React.FC<HistoryListProps> = ({ onRefresh, classId }) => {
   const [history, setHistory] = useState<ChatMessage[]>([]);
   const [pdfs, setPdfs] = useState<PdfDocument[]>([]);
   const [loading, setLoading] = useState(false);
@@ -28,9 +29,10 @@ const HistoryList: React.FC<HistoryListProps> = ({ onRefresh }) => {
   };
 
   const loadPdfs = async () => {
+    if (!classId) return;
     setLoading(true);
     try {
-      const data = await getUserPdfs();
+      const data = await getUserPdfs(classId);
       setPdfs(data);
     } catch (error) {
       console.error('Error loading PDFs:', error);
@@ -45,7 +47,7 @@ const HistoryList: React.FC<HistoryListProps> = ({ onRefresh }) => {
     } else {
       loadPdfs();
     }
-  }, [activeTab]);
+  }, [activeTab, classId]);
 
   const handleClearHistory = async () => {
     if (!confirm('Are you sure you want to clear all chat history?')) return;
@@ -71,29 +73,29 @@ const HistoryList: React.FC<HistoryListProps> = ({ onRefresh }) => {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow h-full flex flex-col">
+    <div className="bg-white rounded-xl shadow-md border border-gray-200 h-full flex flex-col">
       {/* Header with Tabs */}
-      <div className="border-b">
-        <div className="flex">
+      <div className="border-b border-gray-200">
+        <div className="flex gap-1 p-2 bg-gray-50">
           <button
             onClick={() => setActiveTab('chats')}
-            className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+            className={`flex-1 px-3 py-2 text-xs font-semibold rounded-lg transition-all ${
               activeTab === 'chats'
-                ? 'text-indigo-600 border-b-2 border-indigo-600'
-                : 'text-gray-600 hover:text-gray-800'
+                ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-md'
+                : 'text-gray-600 hover:bg-gray-100'
             }`}
           >
-            Chat History
+            💬 Chats
           </button>
           <button
             onClick={() => setActiveTab('pdfs')}
-            className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+            className={`flex-1 px-3 py-2 text-xs font-semibold rounded-lg transition-all ${
               activeTab === 'pdfs'
-                ? 'text-indigo-600 border-b-2 border-indigo-600'
-                : 'text-gray-600 hover:text-gray-800'
+                ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-md'
+                : 'text-gray-600 hover:bg-gray-100'
             }`}
           >
-            My PDFs
+            📄 PDFs
           </button>
         </div>
       </div>

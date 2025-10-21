@@ -2,14 +2,15 @@
  * PDF uploader component
  */
 import React, { useState, useRef } from 'react';
-import { Upload, File, X, CheckCircle, AlertCircle } from 'lucide-react';
+import { Upload, X, CheckCircle, AlertCircle } from 'lucide-react';
 import { uploadPdfFile } from '../services/api';
 
 interface PdfUploaderProps {
   onUploadSuccess: () => void;
+  classId?: number;
 }
 
-const PdfUploader: React.FC<PdfUploaderProps> = ({ onUploadSuccess }) => {
+const PdfUploader: React.FC<PdfUploaderProps> = ({ onUploadSuccess, classId = 1 }) => {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -59,7 +60,7 @@ const PdfUploader: React.FC<PdfUploaderProps> = ({ onUploadSuccess }) => {
     setSuccess(null);
 
     try {
-      const response = await uploadPdfFile(file);
+      const response = await uploadPdfFile(file, classId);
       setSuccess(`Successfully uploaded ${file.name} (${response.chunk_count} chunks indexed)`);
       setTimeout(() => {
         setSuccess(null);
